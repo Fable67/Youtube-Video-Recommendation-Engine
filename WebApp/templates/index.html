@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Video Search</title>
+  <style>
+    body {
+      background: #fff;
+      color: #000;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .search-container {
+      text-align: center;
+    }
+    input[type="text"] {
+      width: 60%;
+      padding: 15px;
+      font-size: 1.2em;
+      border: 2px solid #000;
+      border-radius: 4px;
+      outline: none;
+    }
+    button {
+      padding: 15px 30px;
+      font-size: 1.2em;
+      border: none;
+      border-radius: 4px;
+      background: #000;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.3s ease;
+      margin-top: 20px;
+    }
+    button:hover {
+      background: #333;
+    }
+    .error {
+      color: red;
+      margin-top: 10px;
+    }
+    .disclaimer {
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      font-size: 0.8em;
+      color: #555;
+      background: rgba(255, 255, 255, 0.8);
+      padding: 5px 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="search-container">
+    <h1>Dhammarato Video Search</h1>
+    <form action="/search" method="post">
+      <input type="text" name="query" placeholder="Enter your query..." required>
+      <br>
+      <button type="submit">Search</button>
+    </form>
+    {% if error %}
+      <p class="error">{{ error }}</p>
+    {% endif %}
+  </div>
+  <div class="disclaimer">
+    This service is a work in progress and subject to future changes. Suggestions? Please email OpenSanghaFoundation.
+  </div>
+</body>
+</html>

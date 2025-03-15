@@ -1,0 +1,6 @@
+transcripts/
+__pycache__/
+Cost Analysis.md
+videos.csv
+videos_topics_embedded.csv
+.DS_STORE
