@@ -50,6 +50,26 @@
       color: #333;
       margin-top: 5px;
     }
+    .topics button {
+      background: none;
+      border: none;
+      color: #007BFF;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 0.9em;
+    }
+    .topics-list {
+      display: none;
+      margin-top: 5px;
+    }
+    .topics-list span {
+      display: block;
+      margin: 2px 0;
+      white-space: pre-line;
+    }
+    .topics-list .highlight-topic {
+      font-weight: bold;
+    }
     @keyframes fadeIn {
       to { opacity: 1; }
     }
@@ -91,6 +111,16 @@
       }
     }
   </style>
+  <script>
+    function toggleTopics(id) {
+      const list = document.getElementById(id);
+      if (list.style.display === "none" || list.style.display === "") {
+        list.style.display = "block";
+      } else {
+        list.style.display = "none";
+      }
+    }
+  </script>
 </head>
 <body>
   <h1>Search Results for "{{ query }}"</h1>
@@ -101,12 +131,15 @@
         <div class="details">
           <h2>{{ res.title }}</h2>
           <p class="similarity">Similarity Score: {{ (res.similarity * 100) | round(2) }}%</p>
-          <p class="topics">
-            <b>Topics:</b><br>
-            {% for topic in res.topics %}
-              <span>{{ topic }}</span>{% if not loop.last %}, {% endif %}
-            {% endfor %}
-          </p>
+          <div class="topics">
+            <button onclick="toggleTopics('topics-{{ loop.index }}')">Topics</button>
+            <div id="topics-{{ loop.index }}" class="topics-list">
+              {% for topic in res.topics %}
+                {% set topic_idx = loop.index0 %}
+                <span class="{% if topic_idx == res.topic_index %}highlight-topic{% endif %}">{{ topic | replace('\n', ' ') }}</span>
+              {% endfor %}
+            </div>
+          </div>
         </div>
       </div>
     {% endfor %}
