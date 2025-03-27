@@ -94,8 +94,8 @@ if __name__ == "__main__":
     transcripts_folder_path = "transcripts/"
     FORCE_REBUILD = False
     DEBUG = False
-    BATCHSIZE = 8
-    NUM_VIDEOS = 160
+    BATCHSIZE = 2
+    NUM_VIDEOS = 254
 
     if NUM_VIDEOS % BATCHSIZE != 0:
         print(f"NUM_VIDEOS ({NUM_VIDEOS}) must be divisible by BATCHSIZE ({BATCHSIZE}).")

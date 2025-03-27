@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Video Search</title>
+  <title>Dhammarato Dhamma Video Search</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body {
@@ -49,6 +49,41 @@
     button:hover {
       background: #333;
     }
+    /* Transform the button into a circular loader when .loading is applied */
+    button.loading {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      padding: 0;
+      background: #0000;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none; /* Avoid further clicks */
+      /*transition: width 0.7s ease, height 0.7s ease;*/
+    }
+    /* Hide the text when in loading state */
+    button.loading .btn-text {
+      display: none;
+    }
+    /* Spinner styles */
+    .spinner {
+      display: none;         /* Hidden by default */
+      width: 20px;
+      height: 20px;
+      border: 3px solid #000;
+      border-top: 3px solid #999;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    /* Show the spinner when the button is in loading state */
+    button.loading .spinner {
+      display: inline-block;
+    }
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
     .error {
       color: red;
       margin-top: 10px;
@@ -82,17 +117,25 @@
 <body>
   <div class="search-container">
     <h1>Dhammarato Video Search</h1>
-    <form action="/search" method="post">
-      <input type="text" name="query" placeholder="Enter your query..." required oninput="this.style.width = Math.min(((this.value.length + 1) * 8), document.documentElement.clientWidth * 0.7) + 'px';">
+    <div>
+      <input
+        id="searchInput"
+        type="text"
+        placeholder="Enter your query..."
+        required
+        oninput="this.style.width = Math.min(((this.value.length + 1) * 8), document.documentElement.clientWidth * 0.7) + 'px';"
+      />
       <br>
-      <button type="submit">Search</button>
-    </form>
-    {% if error %}
-      <p class="error">{{ error }}</p>
-    {% endif %}
+      <button id="searchBtn">
+        <span class="btn-text">Search</span>
+        <span class="spinner"></span>
+      </button>
+    </div>
+    <p id="errorMsg" class="error" style="display: none;"></p>
   </div>
   <div class="disclaimer">
     This service is a work in progress and subject to future changes. Suggestions? Please email OpenSanghaFoundation.
   </div>
+  <script src="search.js"></script>
 </body>
 </html>

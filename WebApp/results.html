@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Search Results for "{{ query }}"</title>
+  <title>Search Results</title>
   <style>
     body {
       background: #fff;
@@ -111,41 +111,15 @@
       }
     }
   </style>
-  <script>
-    function toggleTopics(id) {
-      const list = document.getElementById(id);
-      if (list.style.display === "none" || list.style.display === "") {
-        list.style.display = "block";
-      } else {
-        list.style.display = "none";
-      }
-    }
-  </script>
 </head>
 <body>
-  <h1>Search Results for "{{ query }}"</h1>
+  <h1>Search Results</h1>
   <div class="results">
-    {% for res in results %}
-      <div class="result">
-        <iframe src="{{ res.embed_url }}" allowfullscreen></iframe>
-        <div class="details">
-          <h2>{{ res.title }}</h2>
-          <p class="similarity">Similarity Score: {{ (res.similarity * 100) | round(2) }}%</p>
-          <div class="topics">
-            <button onclick="toggleTopics('topics-{{ loop.index }}')">Topics</button>
-            <div id="topics-{{ loop.index }}" class="topics-list">
-              {% for topic in res.topics %}
-                {% set topic_idx = loop.index0 %}
-                <span class="{% if topic_idx == res.topic_index %}highlight-topic{% endif %}">{{ topic | replace('\n', ' ') }}</span>
-              {% endfor %}
-            </div>
-          </div>
-        </div>
-      </div>
-    {% endfor %}
+    <!-- The results will be populated here via JavaScript -->
   </div>
   <div class="back-link">
-    <a href="/">Back to Search</a>
+    <a href="index.html">Back to Search</a>
   </div>
+  <script src="results.js"></script>
 </body>
 </html>
