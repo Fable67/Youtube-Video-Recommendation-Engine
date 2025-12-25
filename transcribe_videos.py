@@ -69,31 +69,37 @@ def fetch_video_transcripts(csv_path, num_videos=None):
     # Progress bar
     transcript_files = []
     for i, (video_title, video_url) in enumerate(tqdm(videos, desc="Transcribing videos", unit="video")):
-        try:
-            video_id = video_url.split('=')[-1]
-            if not DEBUG:
-                transcript = yt.fetch(video_id).to_raw_data()
-            else:
-                transcript = [{"text": "debug transcript"}]
-            time.sleep(1)
+        SUCCESS = False
+        num_tries = 0
+        while not SUCCESS and num_tries <= 6:
+            try:
+                for _ in tqdm(range(2**num_tries), desc=f"Cooldown - Try {num_tries+1}"):
+                    time.sleep(1)
+                video_id = video_url.split('=')[-1]
+                if not DEBUG:
+                    transcript = yt.fetch(video_id).to_raw_data()
+                else:
+                    transcript = [{"text": "debug transcript"}]
 
-            # video_title.replace("/", "")
+                # Create a text file for each video transcript
+                transcript_file = os.path.join(output_dir, f"{slugify(video_title.replace('/', ''))}.txt")
+                
+                with open(transcript_file, 'w', encoding='utf-8') as file:
+                    file.write(json.dumps(transcript))
 
-            # Create a text file for each video transcript
-            transcript_file = os.path.join(output_dir, f"{slugify(video_title.replace('/', ''))}.txt")
-            
-            with open(transcript_file, 'w', encoding='utf-8') as file:
-                file.write(json.dumps(transcript))
+                videos_df.loc[videos_df["title"] == video_title, "transcript_file"] = transcript_file
+                
+                transcript_files.append(transcript_file)
 
-            videos_df.loc[videos_df["title"] == video_title, "transcript_file"] = transcript_file
-            
-            transcript_files.append(transcript_file)
+                SUCCESS = True
 
-        except NoTranscriptFound:
-            print(f"Warning: No transcript found for video {video_url}. Skipping.")
-            videos_df.drop(i, inplace=True)
-        except Exception as e:
-            print(f"Error: Could not fetch transcript for video {video_url}. ({str(e)})")
+            except NoTranscriptFound:
+                print(f"Warning: No transcript found for video {video_url}. Skipping.")
+                videos_df.drop(i, inplace=True)
+            except Exception as e:
+                print(f"Error: Could not fetch transcript for video {video_url}. ({str(e)})")
+                SUCCESS = False
+                num_tries += 1
 
     # videos_df["transcript_file"] = transcript_files
     videos_df.to_csv(f"{csv_path}_transcribed.csv", sep=",", index=False)
