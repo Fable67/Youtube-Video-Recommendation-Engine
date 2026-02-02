@@ -90,7 +90,7 @@ def fetch_video_transcripts(csv_path, num_videos=None, on_pick_up=False):
         # Progress bar
         transcript_files = []
         for i, columns in enumerate(tqdm(videos, desc="Transcribing videos", unit="video")):
-            if on_pick_up and i <= last_idx:
+            if on_pick_up and i < last_idx:
                 continue
             video_title = columns[0]
             video_url = columns[1]
