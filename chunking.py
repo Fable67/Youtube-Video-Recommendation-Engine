@@ -17,9 +17,9 @@ def chunk_transcript_semantic(
 
     # --- embedding refinement ---
     refine_with_embeddings: bool = True,
-    embed_fn: Callable[[str], np.ndarray] = None,
+    batch_embed_fn: Callable[[List[str]], List[np.array]] = None,
     embedding_window_size: int = 12,
-    embedding_similarity_threshold: float = 0.75,
+    embedding_batch_size: int = 32,
 
     # --- boundary confidence & overlap policy ---
     hard_boundary_confidence: float = 0.7,
@@ -40,8 +40,8 @@ def chunk_transcript_semantic(
     if stopwords is None:
         stopwords = set()
 
-    if refine_with_embeddings and embed_fn is None:
-        raise ValueError("embed_fn must be provided if refine_with_embeddings=True")
+    if refine_with_embeddings and batch_embed_fn is None:
+        raise ValueError("batch_embed_fn must be provided if refine_with_embeddings=True")
 
     if debug:
         print(f"[DEBUG] Starting chunking on {len(transcript)} transcript segments")
@@ -93,9 +93,13 @@ def chunk_transcript_semantic(
                 "embedding_similarity": None,
             }
             if debug:
+                start_hours = int(transcript[i]["start"] // 60 // 60)
+                start_minutes = int((transcript[i]["start"] - (start_hours * 60 * 60)) // 60)
+                start_seconds = int(transcript[i]["start"] - (start_hours * 60 * 60) - (start_minutes * 60))
+
                 print(
                     f"[DEBUG] Lexical boundary candidate at index {i} "
-                    f"(overlap={overlap:.3f})"
+                    f"(time={start_hours}:{start_minutes}:{start_seconds}, overlap={overlap:.3f})"
                 )
 
     # ------------------------------------------------------------------
@@ -128,9 +132,13 @@ def chunk_transcript_semantic(
             candidate_boundaries[i]["lexical_overlap"] = overlap
 
             if debug:
+                start_hours = int(transcript[i]["start"] // 60 // 60)
+                start_minutes = int((transcript[i]["start"] - (start_hours * 60 * 60)) // 60)
+                start_seconds = int(transcript[i]["start"] - (start_hours * 60 * 60) - (start_minutes * 60))
+                
                 print(
                     f"[DEBUG] Silence boundary candidate at index {i} "
-                    f"(gap={gap:.2f}s)"
+                    f"(time={start_hours}:{start_minutes}:{start_seconds}, gap={gap:.2f}s)"
                 )
 
     if debug:
@@ -139,57 +147,97 @@ def chunk_transcript_semantic(
         )
 
     # ------------------------------------------------------------------
-    # Step 4: Embedding cache
-    # Prevents recomputation of identical context windows
-    # ------------------------------------------------------------------
-
-    embedding_cache = {}
-
-    def cached_embed(text):
-        key = hash(text)
-        if key not in embedding_cache:
-            if debug:
-                print(
-                    f"[DEBUG] Computing embedding for text window "
-                    f"(~{len(text.split())} tokens)"
-                )
-            embedding_cache[key] = embed_fn(text)
-        else:
-            if debug:
-                print("[DEBUG] Reusing cached embedding")
-        return embedding_cache[key]
-
-    def cosine(a, b):
-        return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
-
-    # ------------------------------------------------------------------
-    # Step 5: Embedding refinement at boundaries only
-    # Confirms whether lexical boundary reflects semantic separation
+    # Step 5: Optional embedding-based boundary refinement (BATCHED)
+    #
+    # Purpose:
+    # Lexical / Word2Vec signals are cheap but noisy.
+    # We only apply embeddings to *candidate boundaries* to:
+    #   - reduce false positives
+    #   - confirm true semantic shifts
+    #
+    # Key constraints:
+    #   - embeddings are expensive → batch
+    #   - ASR text is tiny → window aggregation required
+    #
     # ------------------------------------------------------------------
 
     if refine_with_embeddings:
         if debug:
-            print(f"[DEBUG] Refining {len(candidate_boundaries)} boundaries with embeddings")
+            print(
+                f"[DEBUG] Refining {len(candidate_boundaries)} boundaries with embeddings "
+                f"(batch_size={embedding_batch_size})"
+            )
 
-        for i in list(candidate_boundaries.keys()):
+        # --------------------------------------------------------------
+        # Build texts to embed (windowed context around boundaries)
+        # --------------------------------------------------------------
+        #
+        # Each boundary gets:
+        #   LEFT window text
+        #   RIGHT window text
+        #
+        # We embed BOTH and compare them via cosine similarity.
+        #
+
+        boundary_texts = []
+        boundary_keys = [] # (boundary_index, "left"/"right")
+
+        for i in candidate_boundaries.keys():
             left_start = max(0, i - embedding_window_size)
             right_end = min(len(transcript), i + embedding_window_size)
 
             left_text = " ".join(seg["text"] for seg in transcript[left_start:i])
             right_text = " ".join(seg["text"] for seg in transcript[i:right_end])
 
-            if left_text.strip() and right_text.strip():
-                left_emb = cached_embed(left_text)
-                right_emb = cached_embed(right_text)
-                sim = cosine(left_emb, right_emb)
+            boundary_texts.append(left_text)
+            boundary_keys.append((i, "left"))
+
+            boundary_texts.append(right_text)
+            boundary_keys.append((i, "right"))
+
+        # --------------------------------------------------------------
+        # Batched embedding with caching
+        # --------------------------------------------------------------
+        embeddings = [None] * len(boundary_texts)
+
+        # Batch embed uncached texts
+        for start in range(0, len(boundary_texts), embedding_batch_size):
+            batch_texts = boundary_texts[start:min(len(boundary_texts), start+embedding_batch_size)]
+
+            if debug:
+                print(
+                    f"[DEBUG] Embedding batch "
+                    f"{start}–{start + len(batch_texts)}"
+                )
+
+            batch_vectors = batch_embed_fn(batch_texts)
+
+            for i in range(0, len(batch_texts)):
+                embeddings[start+i] = batch_vectors[i]
+
+        # --------------------------------------------------------------
+        # Compute embedding similarity per boundary
+        # --------------------------------------------------------------
+        def cosine(a, b):
+            return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+
+        boundary_vectors = {}
+
+        for (boundary_idx, side), vec in zip(boundary_keys, embeddings):
+            boundary_vectors.setdefault(boundary_idx, {})[side] = vec
+
+        for i, vecs in boundary_vectors.items():
+            if "left" in vecs and "right" in vecs:
+                sim = cosine(vecs["left"], vecs["right"])
             else:
-                sim = 0.0  # degenerate case → treat as strong boundary
+                sim = 1.0  # fallback: no semantic shift
 
             candidate_boundaries[i]["embedding_similarity"] = sim
 
             if debug:
                 print(
-                    f"[DEBUG] Boundary {i}: embedding similarity = {sim:.3f}"
+                    f"[DEBUG] Boundary {i}: "
+                    f"embedding_similarity={sim:.3f}, "
                 )
 
     # ------------------------------------------------------------------
@@ -293,7 +341,7 @@ def chunk_transcript_semantic(
             if debug and i in candidate_boundaries:
                 print(
                     f"[DEBUG] Ignoring weak boundary at index {i} "
-                    f"(confidence={confidence:.3f})"
+                    f"(confidence={confidence:.3f}, duration={chunk_duration:.1f}s)"
                 )
             current_chunk.append(seg)
 
