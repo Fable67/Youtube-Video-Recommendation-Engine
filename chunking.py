@@ -108,18 +108,35 @@ def chunk_transcript_semantic(
         gap = transcript[i]["start"] - prev_end
 
         if gap >= silence_gap_threshold:
+            left_tokens = []
+            right_tokens = []
+
+            for j in range(max(0, i - window_size), i):
+                left_tokens.extend(tokenized[j])
+
+            for j in range(i, min(i + window_size, len(transcript))):
+                right_tokens.extend(tokenized[j])
+
+            overlap = lexical_overlap(left_tokens, right_tokens)
+
             candidate_boundaries.setdefault(i, {
                 "lexical_overlap": 1.0,
                 "silence_gap": 0.0,
                 "embedding_similarity": None,
             })
             candidate_boundaries[i]["silence_gap"] = gap
+            candidate_boundaries[i]["lexical_overlap"] = overlap
 
             if debug:
                 print(
                     f"[DEBUG] Silence boundary candidate at index {i} "
                     f"(gap={gap:.2f}s)"
                 )
+
+    if debug:
+        print(
+            f"[DEBUG] Found {len(candidate_boundaries)} candidate chunks"
+        )
 
     # ------------------------------------------------------------------
     # Step 4: Embedding cache
