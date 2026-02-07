@@ -21,6 +21,9 @@ def chunk_transcript_semantic(
     embedding_window_size: int = 20,
     embedding_batch_size: int = 32,
 
+    # --- local boundary competition ---
+    boundary_competition_window: float = 50.0,
+
     # --- boundary confidence & overlap policy ---
     hard_boundary_confidence: float = 0.8,
     overlap_boundary_confidence: float = 0.55,
@@ -276,6 +279,80 @@ def chunk_transcript_semantic(
                 f"embedding={info['embedding_similarity']}, "
                 f"silence={info['silence_gap']:.2f})"
             )
+
+
+    # ------------------------------------------------------------------
+    # Step 6.5: Local boundary competition (non-maximum suppression)
+    #
+    # Purpose:
+    # Prevent multiple nearby boundaries from competing unfairly
+    # due to sequential processing order.
+    #
+    # Strategy:
+    # - Boundaries within a time window compete
+    # - Only the strongest (highest confidence) survives
+    # - Preserves interpretability and avoids global optimization
+    # ------------------------------------------------------------------
+
+    if candidate_boundaries:
+
+        # Convert boundaries to sortable list with timestamps
+        boundary_items = []
+        for idx, info in candidate_boundaries.items():
+            boundary_time = transcript[idx]["start"]
+            boundary_items.append((idx, boundary_time, info))
+
+        # Sort by time (important for local comparison)
+        boundary_items.sort(key=lambda x: x[1])
+
+        suppressed = set()
+        surviving_boundaries = {}
+
+        for i, (idx, time_i, info_i) in enumerate(boundary_items):
+
+            if idx in suppressed:
+                continue
+
+            # Compare with nearby boundaries
+            for j in range(i + 1, len(boundary_items)):
+                idx_j, time_j, info_j = boundary_items[j]
+
+                # Stop once we're outside the competition window
+                if time_j - time_i > boundary_competition_window:
+                    break
+
+                # Competing boundaries → keep the stronger one
+                if info_j["confidence"] > info_i["confidence"]:
+                    suppressed.add(idx)
+                    if debug:
+                        print(
+                            f"[DEBUG] Suppressing boundary {idx} "
+                            f"(confidence={info_i['confidence']:.3f}) "
+                            f"in favor of {idx_j} "
+                            f"(confidence={info_j['confidence']:.3f})"
+                        )
+                    break
+                else:
+                    suppressed.add(idx_j)
+                    if debug:
+                        print(
+                            f"[DEBUG] Suppressing boundary {idx_j} "
+                            f"(confidence={info_j['confidence']:.3f}) "
+                            f"in favor of {idx} "
+                            f"(confidence={info_i['confidence']:.3f})"
+                        )
+
+            if idx not in suppressed:
+                surviving_boundaries[idx] = info_i
+
+        if debug:
+            print(
+                f"[DEBUG] Boundary competition reduced "
+                f"{len(candidate_boundaries)} → {len(surviving_boundaries)} boundaries"
+            )
+
+        candidate_boundaries = surviving_boundaries
+
 
     # ------------------------------------------------------------------
     # Step 7: Build chunks with adaptive overlap policy
