@@ -135,7 +135,7 @@ def chunk_transcript_semantic(
                 start_hours = int(transcript[i]["start"] // 60 // 60)
                 start_minutes = int((transcript[i]["start"] - (start_hours * 60 * 60)) // 60)
                 start_seconds = int(transcript[i]["start"] - (start_hours * 60 * 60) - (start_minutes * 60))
-                
+
                 print(
                     f"[DEBUG] Silence boundary candidate at index {i} "
                     f"(time={start_hours}:{start_minutes}:{start_seconds}, gap={gap:.2f}s)"
@@ -259,9 +259,9 @@ def chunk_transcript_semantic(
 
         # Weighted sum; lexical & embedding dominate
         confidence = (
-            0.4 * lexical_component +
-            0.4 * embedding_component +
-            0.2 * silence_component
+            0.3 * lexical_component +
+            0.5 * embedding_component +
+            0.20 * silence_component
         )
 
         return max(0.0, min(1.0, confidence))
@@ -279,7 +279,7 @@ def chunk_transcript_semantic(
 
     # ------------------------------------------------------------------
     # Step 7: Build chunks with adaptive overlap policy
-    # Strong boundary → hard split
+    # Strong boundary → hard split + small overlap
     # Medium boundary → split + overlap
     # Weak boundary → ignore
     # ------------------------------------------------------------------
@@ -310,20 +310,36 @@ def chunk_transcript_semantic(
 
         if hard_split or force_split:
             if debug:
+                start_hours = int(seg["start"] // 60 // 60)
+                start_minutes = int((seg["start"] - (start_hours * 60 * 60)) // 60)
+                start_seconds = int(seg["start"] - (start_hours * 60 * 60) - (start_minutes * 60))
+
                 reason = "FORCED" if force_split else "HARD"
                 print(
                     f"[DEBUG] {reason} split at index {i} "
-                    f"(confidence={confidence:.3f}, duration={chunk_duration:.1f}s)"
+                    f"(confidence={confidence:.3f}, time={start_hours}:{start_minutes}:{start_seconds}, duration={chunk_duration:.1f}s)"
                 )
+
+            overlap_segments = []
+            overlap_start_time = current_end - overlap_duration // 2
+
+            for s in reversed(current_chunk):
+                if s["start"] >= overlap_start_time:
+                    overlap_segments.insert(0, s)
+
             chunks.append(current_chunk)
-            current_chunk = [seg]
-            current_start = seg["start"]
+            current_chunk = overlap_segments + [seg]
+            current_start = current_chunk[0]["start"]
 
         elif overlap_split:
             if debug:
+                start_hours = int(seg["start"] // 60 // 60)
+                start_minutes = int((seg["start"] - (start_hours * 60 * 60)) // 60)
+                start_seconds = int(seg["start"] - (start_hours * 60 * 60) - (start_minutes * 60))
+
                 print(
                     f"[DEBUG] OVERLAP split at index {i} "
-                    f"(confidence={confidence:.3f}, overlap={overlap_duration}s, duration={chunk_duration:.1f}s)"
+                    f"(confidence={confidence:.3f}, overlap={overlap_duration}s, time={start_hours}:{start_minutes}:{start_seconds}, duration={chunk_duration:.1f}s)"
                 )
 
             overlap_segments = []
