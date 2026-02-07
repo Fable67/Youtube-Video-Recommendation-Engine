@@ -7,24 +7,24 @@ from typing import List, Dict, Callable
 def chunk_transcript_semantic(
     transcript: List[Dict],
     # --- lexical chunking ---
-    window_size: int = 24,
-    overlap_threshold: float = 0.2,
-    silence_gap_threshold: float = 6.0,
+    window_size: int = 16,
+    overlap_threshold: float = 0.25,
+    silence_gap_threshold: float = 3.0,
 
     # --- chunk size control ---
-    min_chunk_duration: float = 60.0,
-    max_chunk_duration: float = 300.0,
+    min_chunk_duration: float = 100.0,
+    max_chunk_duration: float = 600.0,
 
     # --- embedding refinement ---
     refine_with_embeddings: bool = True,
     batch_embed_fn: Callable[[List[str]], List[np.array]] = None,
-    embedding_window_size: int = 12,
+    embedding_window_size: int = 20,
     embedding_batch_size: int = 32,
 
     # --- boundary confidence & overlap policy ---
-    hard_boundary_confidence: float = 0.7,
-    overlap_boundary_confidence: float = 0.4,
-    overlap_duration: float = 30.0,
+    hard_boundary_confidence: float = 0.8,
+    overlap_boundary_confidence: float = 0.55,
+    overlap_duration: float = 40.0,
 
     stopwords: set = None,
     debug: bool = False,
