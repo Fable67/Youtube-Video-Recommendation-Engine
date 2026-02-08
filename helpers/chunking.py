@@ -18,15 +18,15 @@ def chunk_transcript_semantic(
     # --- embedding refinement ---
     refine_with_embeddings: bool = True,
     batch_embed_fn: Callable[[List[str]], List[np.array]] = None,
-    embedding_window_size: int = 20,
+    embedding_window_size: int = 28,
     embedding_batch_size: int = 32,
 
     # --- local boundary competition ---
     boundary_competition_window: float = 50.0,
 
     # --- boundary confidence & overlap policy ---
-    hard_boundary_confidence: float = 0.8,
-    overlap_boundary_confidence: float = 0.55,
+    hard_boundary_confidence: float = 0.78,
+    overlap_boundary_confidence: float = 0.52,
     overlap_duration: float = 40.0,
 
     stopwords: set = None,
@@ -258,13 +258,13 @@ def chunk_transcript_semantic(
         if info["embedding_similarity"] is not None:
             embedding_component = 1.0 - info["embedding_similarity"]
 
-        silence_component = min(info["silence_gap"] / silence_gap_threshold, 1.0)
+        silence_component = min(info["silence_gap"] / silence_gap_threshold, 1.5)
 
         # Weighted sum; lexical & embedding dominate
         confidence = (
-            0.3 * lexical_component +
-            0.5 * embedding_component +
-            0.20 * silence_component
+            0.35 * lexical_component +
+            0.53 * embedding_component +
+            0.12 * silence_component
         )
 
         return max(0.0, min(1.0, confidence))
