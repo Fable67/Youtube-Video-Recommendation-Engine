@@ -1,6 +1,6 @@
 transcripts/
+chunks/
 __pycache__/
 Cost Analysis.md
-videos.csv
-videos_topics_embedded.csv
+*.csv
 .DS_STORE
